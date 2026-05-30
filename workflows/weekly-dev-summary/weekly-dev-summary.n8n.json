@@ -130,9 +130,7 @@
         },
         "options": {
           "response": {
-            "response": {
-              "responseFormat": "json"
-            }
+            "responseFormat": "json"
           }
         }
       },
@@ -143,7 +141,8 @@
       "position": [
         -220,
         0
-      ]
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -192,9 +191,7 @@
         },
         "options": {
           "response": {
-            "response": {
-              "responseFormat": "json"
-            }
+            "responseFormat": "json"
           }
         }
       },
@@ -205,7 +202,9 @@
       "position": [
         20,
         0
-      ]
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -250,9 +249,7 @@
         },
         "options": {
           "response": {
-            "response": {
-              "responseFormat": "json"
-            }
+            "responseFormat": "json"
           }
         }
       },
@@ -263,11 +260,13 @@
       "position": [
         260,
         0
-      ]
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const config = $('Prepare Window').first().json;\nconst weekStart = new Date(config.weekStartIso);\nconst weekEnd = new Date(config.weekEndIso);\nconst maxItems = Number(config.maxItems || 25);\n\nfunction asArray(nodeName) {\n  const items = $(nodeName).all().map((item) => item.json);\n  if (items.length === 1 && Array.isArray(items[0])) return items[0];\n  return items;\n}\n\nfunction inWindow(dateValue) {\n  if (!dateValue) return false;\n  const date = new Date(dateValue);\n  return date >= weekStart && date <= weekEnd;\n}\n\nconst commits = asArray('Fetch Commits')\n  .slice(0, maxItems)\n  .map((commit) => ({\n    sha: String(commit.sha || '').slice(0, 7),\n    message: String(commit.commit?.message || '').split('\\n')[0],\n    author: commit.commit?.author?.name || commit.author?.login || 'Unknown',\n    url: commit.html_url\n  }));\n\nconst closedIssues = asArray('Fetch Closed Issues')\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => inWindow(issue.closed_at || issue.updated_at))\n  .slice(0, maxItems)\n  .map((issue) => ({\n    number: issue.number,\n    title: issue.title,\n    closedAt: issue.closed_at,\n    url: issue.html_url\n  }));\n\nconst mergedPullRequests = asArray('Fetch Closed Pull Requests')\n  .filter((pull) => pull.merged_at && inWindow(pull.merged_at))\n  .slice(0, maxItems)\n  .map((pull) => ({\n    number: pull.number,\n    title: pull.title,\n    author: pull.user?.login || 'Unknown',\n    mergedAt: pull.merged_at,\n    url: pull.html_url\n  }));\n\nconst payload = {\n  repository: config.githubRepo,\n  weekStart: config.weekStartIso,\n  weekEnd: config.weekEndIso,\n  commits,\n  closedIssues,\n  mergedPullRequests\n};\n\nconst prompt = [\n  `Write a concise weekly engineering narrative in ${config.languageName}.`,\n  `Repository: ${config.githubRepo}`,\n  `Window: ${config.weekStartIso} to ${config.weekEndIso}`,\n  '',\n  'Use the JSON activity below. Mention the highest-signal product or engineering changes, avoid listing every commit, and close with a short \"Next week watchlist\" section.',\n  '',\n  JSON.stringify(payload, null, 2)\n].join('\\n');\n\nreturn [\n  {\n    json: {\n      ...config,\n      commitsCount: commits.length,\n      closedIssuesCount: closedIssues.length,\n      mergedPullRequestsCount: mergedPullRequests.length,\n      anthropicBody: {\n        model: 'claude-sonnet-4-20250514',\n        max_tokens: 1200,\n        temperature: 0.3,\n        system: 'You are an engineering program manager who writes clear weekly repository updates for a team channel.',\n        messages: [\n          {\n            role: 'user',\n            content: prompt\n          }\n        ]\n      }\n    }\n  }\n];"
+        "jsCode": "const config = $('Prepare Window').first().json;\nconst weekStart = new Date(config.weekStartIso);\nconst weekEnd = new Date(config.weekEndIso);\nconst maxItems = Number(config.maxItems || 25);\n\nfunction asArray(nodeName) {\n  const items = $(nodeName)\n    .all()\n    .map((item) => item.json)\n    .filter((value) => value && Object.keys(value).length > 0);\n\n  if (items.length === 1 && Array.isArray(items[0])) return items[0];\n  return items;\n}\n\nfunction inWindow(dateValue) {\n  if (!dateValue) return false;\n  const date = new Date(dateValue);\n  return date >= weekStart && date <= weekEnd;\n}\n\nconst commits = asArray('Fetch Commits')\n  .slice(0, maxItems)\n  .map((commit) => ({\n    sha: String(commit.sha || '').slice(0, 7),\n    message: String(commit.commit?.message || '').split('\\n')[0],\n    author: commit.commit?.author?.name || commit.author?.login || 'Unknown',\n    url: commit.html_url\n  }));\n\nconst closedIssues = asArray('Fetch Closed Issues')\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => inWindow(issue.closed_at || issue.updated_at))\n  .slice(0, maxItems)\n  .map((issue) => ({\n    number: issue.number,\n    title: issue.title,\n    closedAt: issue.closed_at,\n    url: issue.html_url\n  }));\n\nconst mergedPullRequests = asArray('Fetch Closed Pull Requests')\n  .filter((pull) => pull.merged_at && inWindow(pull.merged_at))\n  .slice(0, maxItems)\n  .map((pull) => ({\n    number: pull.number,\n    title: pull.title,\n    author: pull.user?.login || 'Unknown',\n    mergedAt: pull.merged_at,\n    url: pull.html_url\n  }));\n\nconst payload = {\n  repository: config.githubRepo,\n  weekStart: config.weekStartIso,\n  weekEnd: config.weekEndIso,\n  commits,\n  closedIssues,\n  mergedPullRequests\n};\n\nconst prompt = [\n  `Write a concise weekly engineering narrative in ${config.languageName}.`,\n  `Repository: ${config.githubRepo}`,\n  `Window: ${config.weekStartIso} to ${config.weekEndIso}`,\n  '',\n  'Use the JSON activity below. Mention the highest-signal product or engineering changes, avoid listing every commit, and close with a short \"Next week watchlist\" section.',\n  '',\n  JSON.stringify(payload, null, 2)\n].join('\\n');\n\nreturn [\n  {\n    json: {\n      ...config,\n      commitsCount: commits.length,\n      closedIssuesCount: closedIssues.length,\n      mergedPullRequestsCount: mergedPullRequests.length,\n      anthropicBody: {\n        model: 'claude-sonnet-4-20250514',\n        max_tokens: 1200,\n        temperature: 0.3,\n        system: 'You are an engineering program manager who writes clear weekly repository updates for a team channel.',\n        messages: [\n          {\n            role: 'user',\n            content: prompt\n          }\n        ]\n      }\n    }\n  }\n];"
       },
       "id": "95d02c6c-a05b-4d6a-8a0b-d4ec78486362",
       "name": "Build Claude Request",
@@ -276,7 +275,8 @@
       "position": [
         520,
         0
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -305,9 +305,7 @@
         "body": "={{ JSON.stringify($json.anthropicBody) }}",
         "options": {
           "response": {
-            "response": {
-              "responseFormat": "json"
-            }
+            "responseFormat": "json"
           }
         }
       },
@@ -318,7 +316,8 @@
       "position": [
         780,
         0
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -331,7 +330,8 @@
       "position": [
         1040,
         0
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -352,9 +352,7 @@
         "body": "={{ JSON.stringify($json.discordBody) }}",
         "options": {
           "response": {
-            "response": {
-              "responseFormat": "json"
-            }
+            "responseFormat": "json"
           }
         }
       },
@@ -365,7 +363,8 @@
       "position": [
         1300,
         0
-      ]
+      ],
+      "executeOnce": true
     }
   ],
   "pinData": {},
